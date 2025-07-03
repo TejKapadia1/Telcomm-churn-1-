@@ -41,13 +41,8 @@ def load_data():
     return df
 
 def download_link(df, filename, label):
-    """Generate a link allowing the data in a given panda dataframe to be downloaded
-    in:  df   --  DataFrame
-         filename -- filename and extension of file. e.g. mydata.csv
-         label -- link text
-    """
     csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()  # some strings <-> bytes conversions necessary here
+    b64 = base64.b64encode(csv.encode()).decode()
     href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">{label}</a>'
     return href
 
@@ -73,12 +68,11 @@ tab_viz, tab_clf, tab_cluster, tab_arm, tab_reg = st.tabs(
      '🔗 Association Rules', '📈 Regression'])
 
 # ------------------------------------------------------------------
-# 1. Data Visualization
+# 1. Data Visualization (all 11+ plots!)
 # ------------------------------------------------------------------
 with tab_viz:
     st.subheader('Key Descriptive Insights')
 
-    # Prepare fields (once)
     if 'churn_flag' not in df_filt.columns:
         df_filt['churn_flag'] = (df_filt['churn_intent'] >= 4).astype(int)
     df_filt['tenure_group'] = pd.cut(df_filt['tenure_months'],
@@ -94,7 +88,6 @@ with tab_viz:
     churn_counts_age = df_filt[df_filt['churn_flag'] == 1]['age_group'].value_counts().reset_index()
     churn_counts_age.columns = ['age_group', 'churn_count']
 
-    # Create two columns for all 11 plots (original 7 + 4 churn insights)
     col1, col2 = st.columns(2)
     with col1:
         st.metric('Survey Rows', len(df_filt))
@@ -119,7 +112,6 @@ with tab_viz:
                          title='Engagement vs. Satisfaction')
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- Churn Insight 1: Churn Rate by Tenure Group (Bar) ---
         fig1 = px.bar(
             churn_by_tenure, x='tenure_group', y='churn_rate',
             labels={'tenure_group': 'Tenure Group (Months)', 'churn_rate': 'Churn Rate (%)'},
@@ -130,7 +122,6 @@ with tab_viz:
         st.plotly_chart(fig1, use_container_width=True)
         st.caption("Churn rate is highest among early-tenure customers. Target retention programs accordingly.")
 
-        # --- Churn Insight 2: Churned Customers by Loyalty Tier (Donut) ---
         fig3 = px.pie(
             churn_counts_loyalty,
             names='loyalty_tier',
@@ -157,12 +148,10 @@ with tab_viz:
                            title='Price vs. Quality Preference')
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- Your Original Plot: Services Count vs Avg Monthly Spend (Scatter) ---
         fig = px.scatter(df_filt, x='services_count', y='avg_monthly_spend', color='churn_intent',
                          title='Services Count vs. Average Monthly Spend')
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- Churn Insight 3: Monthly Spend by Churn Status (Box) ---
         fig2 = px.box(
             df_filt, x='churn_flag', y='avg_monthly_spend',
             color='churn_flag',
@@ -174,7 +163,6 @@ with tab_viz:
         st.plotly_chart(fig2, use_container_width=True)
         st.caption("Analyze if high or low spenders are more likely to churn. Enables better pricing interventions.")
 
-        # --- Churn Insight 4: Churned Customers by Age Group (Pie) ---
         fig4 = px.pie(
             churn_counts_age,
             names='age_group',
@@ -255,7 +243,6 @@ with tab_clf:
     perf_df = pd.DataFrame(metrics_store).T.round(3)
     st.dataframe(perf_df)
 
-    # Confusion matrix
     st.write('### Confusion Matrix')
     model_choice = st.selectbox('Select model', list(models.keys()))
     cm = cm_store[model_choice]
@@ -264,7 +251,6 @@ with tab_clf:
                        title=f'Confusion Matrix – {model_choice}')
     st.plotly_chart(cm_fig, use_container_width=True)
 
-    # ROC curves
     st.write('### ROC Curves')
     roc_fig = go.Figure()
     for name,(fpr,tpr) in roc_store.items():
@@ -276,7 +262,6 @@ with tab_clf:
                           yaxis_title='TPR')
     st.plotly_chart(roc_fig, use_container_width=True)
 
-    # Prediction on new data
     st.write('---')
     st.write('### Predict on New Unlabelled Data')
     uploaded = st.file_uploader('Upload a CSV (same schema but no `churn_intent` column)',
@@ -310,7 +295,6 @@ with tab_cluster:
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df_cluster)
 
-    # Elbow chart
     sse = []
     K_range = range(2, 11)
     for k in K_range:
@@ -329,7 +313,6 @@ with tab_cluster:
     labels = km_final.fit_predict(X_scaled)
     df_filt['cluster'] = labels
 
-    # Persona table
     persona = df_filt.groupby('cluster').agg({
         'satisfaction_score':'mean',
         'avg_monthly_spend':'mean',
@@ -340,7 +323,6 @@ with tab_cluster:
     st.write('### Cluster Personas (means)')
     st.dataframe(persona)
 
-    # Download labelled data
     st.markdown(download_link(df_filt, 'clustered_data.csv',
                               '⬇️ Download data with clusters'), unsafe_allow_html=True)
 
@@ -355,17 +337,13 @@ with tab_arm:
     min_sup = st.slider('Minimum support', 0.01, 0.5, 0.05, 0.01)
     min_conf = st.slider('Minimum confidence', 0.1, 0.9, 0.3, 0.05)
 
-    # Prepare one‑hot encoded basket
     def split_items(series):
         return series.fillna('').apply(lambda x: [i.strip() for i in x.split(',') if i.strip()])
 
     basket = split_items(df_filt[col_a]) + split_items(df_filt[col_b])
-    # explode to single row/item pairs
     exploded = df_filt[[col_a, col_b]].copy()
     exploded['basket'] = split_items(df_filt[col_a]) + split_items(df_filt[col_b])
-    # Build a list of lists for each row
     transactions = split_items(df_filt[col_a] + ', ' + df_filt[col_b])
-    # Create one‑hot df
     from mlxtend.preprocessing import TransactionEncoder
     te = TransactionEncoder()
     te_ary = te.fit(transactions.tolist()).transform(transactions.tolist())
@@ -378,7 +356,7 @@ with tab_arm:
     st.dataframe(rules[['antecedents','consequents','support','confidence','lift']])
 
 # ------------------------------------------------------------------
-# 5. Regression
+# 5. Regression with Model Dropdown & Plots
 # ------------------------------------------------------------------
 with tab_reg:
     st.subheader('Predicting Customer Lifetime Value (Spend)')
@@ -403,6 +381,8 @@ with tab_reg:
     }
 
     results = {}
+    preds = {}
+    pipes = {}
     for name, mdl in reg_models.items():
         pipe = Pipeline([('prep', preprocess_r), ('mdl', mdl)])
         X_train, X_test, y_train, y_test = train_test_split(
@@ -413,19 +393,63 @@ with tab_reg:
         rmse = np.sqrt(np.mean((pred - y_test)**2))
         r2 = pipe.score(X_test, y_test)
         results[name] = {'MAE': mae, 'RMSE': rmse, 'R2': r2}
+        preds[name] = (y_test, pred)
+        pipes[name] = pipe
 
     st.write('### Model Comparison')
     st.dataframe(pd.DataFrame(results).T.round(2))
 
-    # Feature importance for tree
-    dt_pipe = Pipeline([('prep', preprocess_r),
-                        ('mdl', reg_models['Decision Tree'])])
-    dt_pipe.fit(X_reg, y_reg)
-    tree = dt_pipe.named_steps['mdl']
-    enc = dt_pipe.named_steps['prep']
-    onehot_cols = enc.get_feature_names_out()
-    importances = pd.Series(tree.feature_importances_, index=onehot_cols)
-    top_feats = importances.sort_values(ascending=False).head(15)
-    fig_imp = px.bar(top_feats[::-1],
-                     title='Decision Tree – Top Feature Importances')
-    st.plotly_chart(fig_imp, use_container_width=True)
+    # Model selection dropdown
+    model_choice = st.selectbox(
+        "Select Regression Model for Details",
+        list(reg_models.keys()),
+        index=0
+    )
+
+    y_test, y_pred = preds[model_choice]
+    pipe = pipes[model_choice]
+    mdl = pipe.named_steps['mdl']
+    enc = pipe.named_steps['prep']
+    feature_names = enc.get_feature_names_out()
+
+    # Show coefficients/feature importances
+    st.write(f"#### {model_choice} Feature Importances / Coefficients")
+    if model_choice == "Decision Tree":
+        importances = pd.Series(mdl.feature_importances_, index=feature_names)
+        top_feats = importances.sort_values(ascending=False).head(15)
+        fig_imp = px.bar(top_feats[::-1],
+                         title='Decision Tree – Top Feature Importances')
+        st.plotly_chart(fig_imp, use_container_width=True)
+    else:
+        try:
+            coefs = pd.Series(mdl.coef_, index=feature_names)
+            top_coefs = coefs.abs().sort_values(ascending=False).head(15)
+            fig_coef = px.bar(top_coefs[::-1],
+                              title=f'{model_choice} – Top Absolute Coefficients')
+            st.plotly_chart(fig_coef, use_container_width=True)
+        except Exception as e:
+            st.write("Could not extract coefficients.")
+
+    # Actual vs Predicted plot
+    st.write(f"#### {model_choice} Actual vs Predicted Spend")
+    fig_pred = px.scatter(
+        x=y_test, y=y_pred,
+        labels={'x': 'Actual Spend', 'y': 'Predicted Spend'},
+        title=f'Actual vs Predicted – {model_choice}'
+    )
+    fig_pred.add_shape(
+        type="line", x0=y_test.min(), y0=y_test.min(),
+        x1=y_test.max(), y1=y_test.max(),
+        line=dict(color="red", dash="dash")
+    )
+    st.plotly_chart(fig_pred, use_container_width=True)
+
+    # Residual plot
+    st.write(f"#### {model_choice} Residual Plot")
+    residuals = y_test - y_pred
+    fig_res = px.scatter(
+        x=y_pred, y=residuals,
+        labels={'x': 'Predicted Spend', 'y': 'Residual (Actual - Predicted)'},
+        title=f'Residuals vs Predicted – {model_choice}'
+    )
+    st.plotly_chart(fig_res, use_container_width=True)
