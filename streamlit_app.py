@@ -355,7 +355,7 @@ with tab_arm:
     st.dataframe(rules[['antecedents','consequents','support','confidence','lift']])
 
 # ------------------------------------------------------------------
-# 5. Regression with Model Dropdown & Churn Intent Linear Regression
+# 5. Regression (no churn intent analysis)
 # ------------------------------------------------------------------
 with tab_reg:
     st.subheader('Predicting Customer Lifetime Value (Spend)')
@@ -452,65 +452,3 @@ with tab_reg:
         title=f'Residuals vs Predicted – {model_choice}'
     )
     st.plotly_chart(fig_res, use_container_width=True)
-
-    # --- New: Linear Regression for Churn Intent Score ---
-    with st.expander("Churn Intent Regression (Linear)"):
-        st.write("### Predicting Churn Intent (How Strong is Churn Risk?)")
-        # Use all available features except churn_intent
-        features = [col for col in df_filt.columns if col != 'churn_intent']
-        X = df_filt[features]
-        y = df_filt['churn_intent']
-
-        # Remove target and any direct leakage columns
-        for col in ['churn_flag', 'cluster', 'churned']:
-            if col in X.columns:
-                X = X.drop([col], axis=1)
-
-        cat_cols = X.select_dtypes(include=['object']).columns.tolist()
-        num_cols = X.select_dtypes(include=['int64','float64']).columns.tolist()
-
-        preprocessor = ColumnTransformer([
-            ('num', StandardScaler(), num_cols),
-            ('cat', OneHotEncoder(handle_unknown='ignore'), cat_cols)
-        ])
-        linreg = Pipeline([('prep', preprocessor), ('lr', LinearRegression())])
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-        linreg.fit(X_train, y_train)
-        y_pred = linreg.predict(X_test)
-        r2 = linreg.score(X_test, y_test)
-        rmse = np.sqrt(np.mean((y_pred - y_test)**2))
-        st.write(f"**R²:** {r2:.3f} &nbsp;&nbsp; **RMSE:** {rmse:.2f}")
-
-        # Feature importances (coefficients)
-        coefs = linreg.named_steps['lr'].coef_
-        feature_names = linreg.named_steps['prep'].get_feature_names_out()
-        coef_series = pd.Series(coefs, index=feature_names)
-        top_coefs = coef_series.abs().sort_values(ascending=False).head(15)
-        fig_coef = px.bar(
-            top_coefs[::-1],
-            title='Top Absolute Coefficients: Drivers of Churn Intent'
-        )
-        st.plotly_chart(fig_coef, use_container_width=True)
-
-        # Actual vs Predicted plot
-        fig_pred = px.scatter(
-            x=y_test, y=y_pred,
-            labels={'x': 'Actual Churn Intent', 'y': 'Predicted Churn Intent'},
-            title='Actual vs Predicted Churn Intent'
-        )
-        fig_pred.add_shape(
-            type="line", x0=y_test.min(), y0=y_test.min(),
-            x1=y_test.max(), y1=y_test.max(),
-            line=dict(color="red", dash="dash")
-        )
-        st.plotly_chart(fig_pred, use_container_width=True)
-
-        # Residual plot
-        residuals = y_test - y_pred
-        fig_res = px.scatter(
-            x=y_pred, y=residuals,
-            labels={'x': 'Predicted Churn Intent', 'y': 'Residual (Actual - Predicted)'},
-            title='Residuals vs Predicted (Churn Intent)'
-        )
-        st.plotly_chart(fig_res, use_container_width=True)
