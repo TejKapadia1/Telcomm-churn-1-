@@ -78,28 +78,27 @@ tab_viz, tab_clf, tab_cluster, tab_arm, tab_reg = st.tabs(
 with tab_viz:
     st.subheader('Key Descriptive Insights')
 
-    # Prepare new columns/aggregates only once
+    # Prepare fields (once)
     if 'churn_flag' not in df_filt.columns:
         df_filt['churn_flag'] = (df_filt['churn_intent'] >= 4).astype(int)
     df_filt['tenure_group'] = pd.cut(df_filt['tenure_months'],
                                      bins=[0, 12, 24, 36, 48, 60, 72, 1000],
                                      labels=['0-12', '13-24', '25-36', '37-48', '49-60', '61-72', '73+'])
-
     churn_by_tenure = (
         df_filt.groupby('tenure_group')['churn_flag'].mean().reset_index()
         .rename(columns={'churn_flag': 'churn_rate'})
     )
     churn_by_tenure['churn_rate'] = churn_by_tenure['churn_rate'] * 100
-
     churn_counts_loyalty = df_filt[df_filt['churn_flag'] == 1]['loyalty_tier'].value_counts().reset_index()
     churn_counts_loyalty.columns = ['loyalty_tier', 'churn_count']
-
     churn_counts_age = df_filt[df_filt['churn_flag'] == 1]['age_group'].value_counts().reset_index()
     churn_counts_age.columns = ['age_group', 'churn_count']
 
+    # Create two columns for all 11 plots (original 7 + 4 churn insights)
     col1, col2 = st.columns(2)
     with col1:
         st.metric('Survey Rows', len(df_filt))
+
         fig = px.histogram(df_filt, x='satisfaction_score', nbins=20,
                            title='Satisfaction Score Distribution')
         st.plotly_chart(fig, use_container_width=True)
@@ -109,7 +108,18 @@ with tab_viz:
                      title='Monthly Spend vs. Churn Intent')
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- Moved: Churn Rate by Tenure Group (Bar) ---
+        fig = px.bar(df_filt, x='loyalty_tier',
+                     y='avg_monthly_spend',
+                     title='Average Spend by Loyalty Tier',
+                     color='loyalty_tier')
+        st.plotly_chart(fig, use_container_width=True)
+
+        fig = px.scatter(df_filt, x='engagement_count',
+                         y='satisfaction_score', color='churn_intent',
+                         title='Engagement vs. Satisfaction')
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- Churn Insight 1: Churn Rate by Tenure Group (Bar) ---
         fig1 = px.bar(
             churn_by_tenure, x='tenure_group', y='churn_rate',
             labels={'tenure_group': 'Tenure Group (Months)', 'churn_rate': 'Churn Rate (%)'},
@@ -120,7 +130,7 @@ with tab_viz:
         st.plotly_chart(fig1, use_container_width=True)
         st.caption("Churn rate is highest among early-tenure customers. Target retention programs accordingly.")
 
-        # --- Moved: Churned Customers by Loyalty Tier (Donut) ---
+        # --- Churn Insight 2: Churned Customers by Loyalty Tier (Donut) ---
         fig3 = px.pie(
             churn_counts_loyalty,
             names='loyalty_tier',
@@ -147,7 +157,12 @@ with tab_viz:
                            title='Price vs. Quality Preference')
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- Moved: Monthly Spend by Churn Status (Box) ---
+        # --- Your Original Plot: Services Count vs Avg Monthly Spend (Scatter) ---
+        fig = px.scatter(df_filt, x='services_count', y='avg_monthly_spend', color='churn_intent',
+                         title='Services Count vs. Average Monthly Spend')
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- Churn Insight 3: Monthly Spend by Churn Status (Box) ---
         fig2 = px.box(
             df_filt, x='churn_flag', y='avg_monthly_spend',
             color='churn_flag',
@@ -159,7 +174,7 @@ with tab_viz:
         st.plotly_chart(fig2, use_container_width=True)
         st.caption("Analyze if high or low spenders are more likely to churn. Enables better pricing interventions.")
 
-        # --- Moved: Churned Customers by Age Group (Pie) ---
+        # --- Churn Insight 4: Churned Customers by Age Group (Pie) ---
         fig4 = px.pie(
             churn_counts_age,
             names='age_group',
