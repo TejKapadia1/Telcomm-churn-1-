@@ -118,11 +118,12 @@ with tab_viz:
 
     # ------------------ NEW: ADDITIONAL DESCRIPTIVE PLOTS (ALL PLOTLY) -----------------------
     st.markdown("### Additional Descriptive Churn Insights")
+
     # 1. Churn Rate by Tenure Group (Plotly)
     if 'churn_flag' not in df_filt.columns:
         df_filt['churn_flag'] = (df_filt['churn_intent'] >= 4).astype(int)
-    df_filt['tenure_group'] = pd.cut(df_filt['tenure_months'], 
-                                     bins=[0, 12, 24, 36, 48, 60, 72, 1000], 
+    df_filt['tenure_group'] = pd.cut(df_filt['tenure_months'],
+                                     bins=[0, 12, 24, 36, 48, 60, 72, 1000],
                                      labels=['0-12', '13-24', '25-36', '37-48', '49-60', '61-72', '73+'])
     churn_by_tenure = (
         df_filt.groupby('tenure_group')['churn_flag'].mean().reset_index()
@@ -140,7 +141,7 @@ with tab_viz:
     st.plotly_chart(fig1, use_container_width=True)
     st.caption("Churn rate is highest among early-tenure customers. Target retention programs accordingly.")
 
-    # 2. Monthly Spend (Charges) vs Churn (Box Plot, Plotly)
+    # 2. Monthly Spend by Churn Status (Plotly)
     fig2 = px.box(
         df_filt, x='churn_flag', y='avg_monthly_spend',
         color='churn_flag',
@@ -152,24 +153,41 @@ with tab_viz:
     st.plotly_chart(fig2, use_container_width=True)
     st.caption("Analyze if high or low spenders are more likely to churn. Enables better pricing interventions.")
 
-    # 3. Churn Rate by Contract Type (Plotly)
-    if 'contract_type' in df_filt.columns:
-        churn_by_contract = (
-            df_filt.groupby('contract_type')['churn_flag'].mean().reset_index()
-            .rename(columns={'churn_flag': 'churn_rate'})
-        )
-        churn_by_contract['churn_rate'] = churn_by_contract['churn_rate'] * 100
+    # 3. Churn Rate by Loyalty Tier (Plotly)
+    churn_by_loyalty = (
+        df_filt.groupby('loyalty_tier')['churn_flag'].mean().reset_index()
+        .rename(columns={'churn_flag': 'churn_rate'})
+    )
+    churn_by_loyalty['churn_rate'] = churn_by_loyalty['churn_rate'] * 100
 
-        fig3 = px.bar(
-            churn_by_contract,
-            x='contract_type', y='churn_rate',
-            labels={'contract_type': 'Contract Type', 'churn_rate': 'Churn Rate (%)'},
-            title='Churn Rate by Contract Type',
-            color='churn_rate',
-            color_continuous_scale='Teal'
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-        st.caption("Month-to-month contracts show the highest churn. Lock-in and loyalty offers can help.")
+    fig3 = px.bar(
+        churn_by_loyalty,
+        x='loyalty_tier', y='churn_rate',
+        labels={'loyalty_tier': 'Loyalty Tier', 'churn_rate': 'Churn Rate (%)'},
+        title='Churn Rate by Loyalty Tier',
+        color='churn_rate',
+        color_continuous_scale='OrRd'
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+    st.caption("Churn rate by loyalty tier highlights which customer segments are most at risk, enabling tier-specific retention efforts.")
+
+    # 4. Churn Rate by Age Group (Plotly)
+    churn_by_age = (
+        df_filt.groupby('age_group')['churn_flag'].mean().reset_index()
+        .rename(columns={'churn_flag': 'churn_rate'})
+    )
+    churn_by_age['churn_rate'] = churn_by_age['churn_rate'] * 100
+
+    fig4 = px.bar(
+        churn_by_age,
+        x='age_group', y='churn_rate',
+        labels={'age_group': 'Age Group', 'churn_rate': 'Churn Rate (%)'},
+        title='Churn Rate by Age Group',
+        color='churn_rate',
+        color_continuous_scale='Viridis'
+    )
+    st.plotly_chart(fig4, use_container_width=True)
+    st.caption("Churn rate by age group helps identify generational trends and at-risk demographics.")
 
     st.markdown('---')
     st.markdown('**Raw filtered data**')
