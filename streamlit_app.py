@@ -116,6 +116,46 @@ with tab_viz:
                            title='Price vs. Quality Preference')
         st.plotly_chart(fig, use_container_width=True)
 
+    # ------------------ NEW: ADDITIONAL DESCRIPTIVE PLOTS -----------------------
+    st.markdown("### Additional Descriptive Churn Insights")
+    # 1. Churn Rate by Tenure Group
+    if 'churn_flag' not in df_filt.columns:
+        df_filt['churn_flag'] = (df_filt['churn_intent'] >= 4).astype(int)
+    df_filt['tenure_group'] = pd.cut(df_filt['tenure_months'], 
+                                     bins=[0, 12, 24, 36, 48, 60, 72, 1000], 
+                                     labels=['0-12', '13-24', '25-36', '37-48', '49-60', '61-72', '73+'])
+    churn_by_tenure = df_filt.groupby('tenure_group')['churn_flag'].mean() * 100
+    fig1, ax1 = plt.subplots()
+    churn_by_tenure.plot(kind='bar', ax=ax1, color='cornflowerblue')
+    ax1.set_ylabel('Churn Rate (%)')
+    ax1.set_xlabel('Tenure Group (Months)')
+    ax1.set_title('Churn Rate by Tenure Group')
+    ax1.grid(axis='y', linestyle='--', alpha=0.7)
+    st.pyplot(fig1)
+    st.caption("Churn rate is highest among early-tenure customers. Target retention programs accordingly.")
+
+    # 2. Monthly Charges (Spend) vs Churn (Box Plot)
+    fig2, ax2 = plt.subplots()
+    sns.boxplot(x='churn_flag', y='avg_monthly_spend', data=df_filt, ax=ax2, palette="Set2")
+    ax2.set_title('Monthly Spend by Churn Status')
+    ax2.set_xlabel('Churn Status')
+    ax2.set_ylabel('Avg Monthly Spend')
+    ax2.set_xticklabels(['Stayed', 'Churned'])
+    st.pyplot(fig2)
+    st.caption("Analyze if high or low spenders are more likely to churn. Enables better pricing interventions.")
+
+    # 3. Churn Rate by Contract Type
+    if 'contract_type' in df_filt.columns:
+        churn_by_contract = df_filt.groupby('contract_type')['churn_flag'].mean() * 100
+        fig3, ax3 = plt.subplots()
+        churn_by_contract.plot(kind='bar', ax=ax3, color=['salmon', 'mediumseagreen', 'steelblue'])
+        ax3.set_ylabel('Churn Rate (%)')
+        ax3.set_xlabel('Contract Type')
+        ax3.set_title('Churn Rate by Contract Type')
+        ax3.grid(axis='y', linestyle='--', alpha=0.7)
+        st.pyplot(fig3)
+        st.caption("Month-to-month contracts show the highest churn. Lock-in and loyalty offers can help.")
+
     st.markdown('---')
     st.markdown('**Raw filtered data**')
     st.dataframe(df_filt)
@@ -129,7 +169,6 @@ with tab_viz:
 with tab_clf:
     st.subheader('Customer Churn Classification')
 
-    # Binary target
     df_model = df_filt.copy()
     df_model['churn_flag'] = (df_model['churn_intent'] >= 4).astype(int)
 
