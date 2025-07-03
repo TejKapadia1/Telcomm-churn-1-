@@ -326,7 +326,7 @@ with tab_cluster:
                               '⬇️ Download data with clusters'), unsafe_allow_html=True)
 
 # ------------------------------------------------------------------
-# 4. Association Rule Mining
+# 4. Association Rule Mining (error fixed!)
 # ------------------------------------------------------------------
 with tab_arm:
     st.subheader('Market‑Basket Insights (Apriori)')
@@ -339,9 +339,9 @@ with tab_arm:
     def split_items(series):
         return series.fillna('').apply(lambda x: [i.strip() for i in x.split(',') if i.strip()])
 
-    basket = split_items(df_filt[col_a]) + split_items(df_filt[col_b])
-    exploded = df_filt[[col_a, col_b]].copy()
-    exploded['basket'] = split_items(df_filt[col_a]) + split_items[df_filt[col_b])
+    # Remove the faulty line! (It was unused anyway.)
+    # exploded['basket'] = split_items(df_filt[col_a]) + split_items(df_filt[col_b])
+
     transactions = split_items(df_filt[col_a] + ', ' + df_filt[col_b])
     from mlxtend.preprocessing import TransactionEncoder
     te = TransactionEncoder()
