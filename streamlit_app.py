@@ -78,48 +78,7 @@ tab_viz, tab_clf, tab_cluster, tab_arm, tab_reg = st.tabs(
 with tab_viz:
     st.subheader('Key Descriptive Insights')
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric('Survey Rows', len(df_filt))
-        fig = px.histogram(df_filt, x='satisfaction_score', nbins=20,
-                           title='Satisfaction Score Distribution')
-        st.plotly_chart(fig, use_container_width=True)
-
-        fig = px.box(df_filt, x='churn_intent', y='avg_monthly_spend',
-                     color='churn_intent',
-                     title='Monthly Spend vs. Churn Intent')
-        st.plotly_chart(fig, use_container_width=True)
-
-        fig = px.bar(df_filt, x='loyalty_tier',
-                     y='avg_monthly_spend',
-                     title='Average Spend by Loyalty Tier',
-                     color='loyalty_tier')
-        st.plotly_chart(fig, use_container_width=True)
-
-        fig = px.scatter(df_filt, x='engagement_count',
-                         y='satisfaction_score', color='churn_intent',
-                         title='Engagement vs. Satisfaction')
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col2:
-        corr = df_filt.select_dtypes(include=[np.number]).corr()
-        fig = px.imshow(corr, text_auto=True, title='Correlation Heatmap')
-        st.plotly_chart(fig, use_container_width=True)
-
-        fig = px.histogram(df_filt, x='network_quality_score',
-                           color='churn_intent',
-                           title='Network Quality vs.Churn Intent',
-                           barmode='group')
-        st.plotly_chart(fig, use_container_width=True)
-
-        fig = px.histogram(df_filt, x='price_quality_weight',
-                           title='Price vs. Quality Preference')
-        st.plotly_chart(fig, use_container_width=True)
-
-    # ------------------ NEW: ADDITIONAL DESCRIPTIVE PLOTS (ALL PLOTLY, TWO COLUMNS) -----------------------
-    st.markdown("### Additional Descriptive Churn Insights")
-
-    # Precompute fields for all plots once (for efficiency and to avoid warnings)
+    # Prepare new columns/aggregates only once
     if 'churn_flag' not in df_filt.columns:
         df_filt['churn_flag'] = (df_filt['churn_intent'] >= 4).astype(int)
     df_filt['tenure_group'] = pd.cut(df_filt['tenure_months'],
@@ -138,11 +97,19 @@ with tab_viz:
     churn_counts_age = df_filt[df_filt['churn_flag'] == 1]['age_group'].value_counts().reset_index()
     churn_counts_age.columns = ['age_group', 'churn_count']
 
-    # Lay out additional plots in two columns
-    col3, col4 = st.columns(2)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric('Survey Rows', len(df_filt))
+        fig = px.histogram(df_filt, x='satisfaction_score', nbins=20,
+                           title='Satisfaction Score Distribution')
+        st.plotly_chart(fig, use_container_width=True)
 
-    with col3:
-        # 1. Churn Rate by Tenure Group (Bar)
+        fig = px.box(df_filt, x='churn_intent', y='avg_monthly_spend',
+                     color='churn_intent',
+                     title='Monthly Spend vs. Churn Intent')
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- Moved: Churn Rate by Tenure Group (Bar) ---
         fig1 = px.bar(
             churn_by_tenure, x='tenure_group', y='churn_rate',
             labels={'tenure_group': 'Tenure Group (Months)', 'churn_rate': 'Churn Rate (%)'},
@@ -153,7 +120,7 @@ with tab_viz:
         st.plotly_chart(fig1, use_container_width=True)
         st.caption("Churn rate is highest among early-tenure customers. Target retention programs accordingly.")
 
-        # 2. Churned Customers by Loyalty Tier (Donut Chart)
+        # --- Moved: Churned Customers by Loyalty Tier (Donut) ---
         fig3 = px.pie(
             churn_counts_loyalty,
             names='loyalty_tier',
@@ -165,8 +132,22 @@ with tab_viz:
         st.plotly_chart(fig3, use_container_width=True)
         st.caption("This donut chart shows the proportion of churned customers from each loyalty tier.")
 
-    with col4:
-        # 3. Monthly Spend by Churn Status (Box)
+    with col2:
+        corr = df_filt.select_dtypes(include=[np.number]).corr()
+        fig = px.imshow(corr, text_auto=True, title='Correlation Heatmap')
+        st.plotly_chart(fig, use_container_width=True)
+
+        fig = px.histogram(df_filt, x='network_quality_score',
+                           color='churn_intent',
+                           title='Network Quality vs.Churn Intent',
+                           barmode='group')
+        st.plotly_chart(fig, use_container_width=True)
+
+        fig = px.histogram(df_filt, x='price_quality_weight',
+                           title='Price vs. Quality Preference')
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- Moved: Monthly Spend by Churn Status (Box) ---
         fig2 = px.box(
             df_filt, x='churn_flag', y='avg_monthly_spend',
             color='churn_flag',
@@ -178,7 +159,7 @@ with tab_viz:
         st.plotly_chart(fig2, use_container_width=True)
         st.caption("Analyze if high or low spenders are more likely to churn. Enables better pricing interventions.")
 
-        # 4. Churned Customers by Age Group (Pie Chart)
+        # --- Moved: Churned Customers by Age Group (Pie) ---
         fig4 = px.pie(
             churn_counts_age,
             names='age_group',
